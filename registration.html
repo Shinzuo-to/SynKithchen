@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Registration</title>
+
+<link rel="stylesheet" href="Assets/Styles/styles.css">
+
+</head>
+<body class="registration-page">
+
+<div id="login-container">
+
+    <h2>Admin Registration</h2>
+
+    <form id="registerForm">
+        <ol class="verification-steps" aria-label="Registration verification steps">
+            <li id="id-step" class="is-current" aria-current="step">
+                <span>1</span> ID check
+            </li>
+            <li id="face-step">
+                <span>2</span> Live face check
+            </li>
+            <li id="match-step">
+                <span>3</span> Face match
+            </li>
+        </ol>
+
+        <div class="input-group">
+            <label for="firstName">First Name</label>
+            <input
+                type="text"
+                id="firstName"
+                required>
+        </div>
+
+        <div class="input-group">
+            <label for="middleName">Middle Name or Initial</label>
+            <input
+                type="text"
+                id="middleName"
+                maxlength="100"
+                placeholder="Enter your middle name or initial"
+                autocomplete="additional-name"
+                required>
+        </div>
+
+        <div class="input-group">
+            <label for="lastName">Last Name</label>
+            <input
+                type="text"
+                id="lastName"
+                required>
+        </div>
+
+        <p class="verification-note">
+            Name matching ignores uppercase and lowercase. Enter your name as it
+            appears on your ID.
+        </p>
+
+        <div class="input-group">
+            <label for="username">Username</label>
+            <input
+                type="text"
+                id="username"
+                required>
+        </div>
+
+        <div class="input-group">
+            <label for="password">Password</label>
+            <input
+                type="password"
+                id="password"
+                required>
+        </div>
+
+        <div class="input-group">
+            <label for="confirmPassword">Confirm Password</label>
+            <input
+                type="password"
+                id="confirmPassword"
+                required>
+        </div>
+
+        <div class="input-group">
+            <label for="idType">Government-issued ID type</label>
+            <select id="idType" required>
+                <option value="">Select an ID type</option>
+                <option value="national_id">National identity card</option>
+                <option value="passport">Passport</option>
+                <option value="drivers_license">Driver's license</option>
+                <option value="voters_id">Voter's ID</option>
+                <option value="postal_id">Postal ID</option>
+                <option value="digital_id">Digital government ID</option>
+                <option value="other_government_id">Other government-issued photo ID</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="idImage">Upload a photo of your ID (HD not required)</label>
+            <input
+                type="file"
+                id="idImage"
+                accept="image/jpeg,image/png,image/webp"
+                required>
+        </div>
+
+        <div id="id-preview" class="id-preview" hidden>
+            <img id="id-preview-image" alt="Preview of the selected ID image">
+            <p id="id-preview-name"></p>
+        </div>
+
+        <p class="verification-note">
+            The photo does not need to be HD, but the name and face must be readable.
+            The text check compares the name you entered and recognizable document
+            labels with the selected ID type. It does not authenticate the document or
+            verify its security features or expiry. Text scanning runs locally on this
+            server; the ID image and selfie are sent to the configured face-matching
+            service for comparison.
+        </p>
+
+        <button type="button" class="btn" id="verify-id-btn">
+            Check ID image
+        </button>
+
+        <section id="liveness-section" hidden>
+            <h3>Live face check</h3>
+            <p>Allow camera access, then follow the prompts to turn your head left and
+                right and blink. Keep your face in view throughout the check.</p>
+
+            <div class="input-group">
+                <label for="cameraSelect">Camera</label>
+                <select id="cameraSelect"></select>
+            </div>
+
+            <button type="button" class="btn" id="start-camera-btn">
+                Start Camera
+            </button>
+
+            <div class="camera-panel">
+                <div class="camera-frame">
+                    <video id="video" autoplay muted playsinline></video>
+                </div>
+                <p id="liveness-instruction" aria-live="polite">
+                    Complete the ID image check before starting the camera.
+                </p>
+            </div>
+
+            <button
+                type="button"
+                class="btn"
+                id="capture-btn"
+                disabled>
+                Capture Face
+            </button>
+
+            <canvas id="canvas" hidden></canvas>
+
+            <div id="previewContainer">
+                <img id="previewImage" alt="Captured selfie preview">
+            </div>
+        </section>
+
+        <p id="match-note" class="verification-note" hidden>
+            After you submit, the server will compare the captured face with the face
+            on the uploaded ID. Registration is rejected if the match is below 70%
+            similarity or the verification service cannot confirm it.
+        </p>
+
+        <p id="message" class="error-message" role="status" aria-live="polite"></p>
+
+        <button type="submit" class="btn" id="submit-btn" disabled>
+            Register
+        </button>
+
+    </form>
+
+</div>
+
+<script src="Assets/Scripts/camera-liveness.js?v=6"></script>
+<script>
+const form = document.getElementById("registerForm");
+const firstNameInput = document.getElementById("firstName");
+const middleNameInput = document.getElementById("middleName");
+const lastNameInput = document.getElementById("lastName");
+const usernameInput = document.getElementById("username");
+const passwordInput = document.getElementById("password");
+const confirmPasswordInput = document.getElementById("confirmPassword");
+const idTypeInput = document.getElementById("idType");
+const idImageInput = document.getElementById("idImage");
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const cameraSelect = document.getElementById("cameraSelect");
+const startCameraButton = document.getElementById("start-camera-btn");
+const livenessSection = document.getElementById("liveness-section");
+const instruction = document.getElementById("liveness-instruction");
+const verifyIdButton = document.getElementById("verify-id-btn");
+const captureButton = document.getElementById("capture-btn");
+const submitButton = document.getElementById("submit-btn");
+const previewImage = document.getElementById("previewImage");
+const messageBox = document.getElementById("message");
+const idPreview = document.getElementById("id-preview");
+const idPreviewImage = document.getElementById("id-preview-image");
+const idPreviewName = document.getElementById("id-preview-name");
+const idStep = document.getElementById("id-step");
+const faceStep = document.getElementById("face-step");
+const matchStep = document.getElementById("match-step");
+const matchNote = document.getElementById("match-note");
+
+let idVerified = false;
+let idVerificationToken = null;
+let selfieCaptured = false;
+let matchingInProgress = false;
+let cameraLiveness;
+let idPreviewUrl = null;
+let ocrImageSource = null;
+let ocrImageBlob = null;
+
+function setStepState(step, state) {
+    step.classList.remove("is-current", "is-complete");
+    step.removeAttribute("aria-current");
+    if (state === "current") {
+        step.classList.add("is-current");
+        step.setAttribute("aria-current", "step");
+    } else if (state === "complete") {
+        step.classList.add("is-complete");
+    }
+}
+
+function updateProgress() {
+    setStepState(idStep, idVerified ? "complete" : "current");
+    setStepState(faceStep, selfieCaptured ? "complete" : idVerified ? "current" : "pending");
+    setStepState(matchStep, matchingInProgress ? "current" : "pending");
+    matchNote.hidden = !selfieCaptured;
+}
+
+function showIdPreview() {
+    if (idPreviewUrl) {
+        URL.revokeObjectURL(idPreviewUrl);
+        idPreviewUrl = null;
+    }
+
+    const file = idImageInput.files[0];
+    if (!file) {
+        idPreview.hidden = true;
+        idPreviewImage.removeAttribute("src");
+        idPreviewName.textContent = "";
+        return;
+    }
+
+    idPreviewUrl = URL.createObjectURL(file);
+    idPreviewImage.src = idPreviewUrl;
+    idPreviewName.textContent = file.name;
+    idPreview.hidden = false;
+}
+
+function showMessage(message, type) {
+    messageBox.textContent = message;
+    messageBox.className = type === "error"
+        ? "error-message is-visible"
+        : "error-message is-visible " + type;
+}
+
+function clearMessage() {
+    messageBox.textContent = "";
+    messageBox.className = "error-message";
+}
+
+function waitWithTimeout(promise, milliseconds, message) {
+    let timeoutId;
+    return Promise.race([
+        promise,
+        new Promise((resolve, reject) => {
+            timeoutId = window.setTimeout(
+                () => reject(new Error(message)),
+                milliseconds
+            );
+        })
+    ]).finally(() => window.clearTimeout(timeoutId));
+}
+
+async function postFormForJson(url, formData, timeoutMs, timeoutMessage) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(
+        () => controller.abort(),
+        timeoutMs
+    );
+
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            body: formData,
+            signal: controller.signal
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "The request could not be completed.");
+        }
+
+        return data;
+    } catch (error) {
+        if (error.name === "AbortError") {
+            throw new Error(timeoutMessage);
+        }
+
+        throw error;
+    } finally {
+        window.clearTimeout(timeoutId);
+    }
+}
+
+function resetVerification() {
+    idVerified = false;
+    idVerificationToken = null;
+    selfieCaptured = false;
+    matchingInProgress = false;
+    submitButton.disabled = true;
+    captureButton.disabled = true;
+    livenessSection.hidden = true;
+    matchNote.hidden = true;
+    previewImage.style.display = "none";
+    previewImage.removeAttribute("src");
+    updateProgress();
+    if (cameraLiveness) {
+        cameraLiveness.stop();
+    }
+}
+
+[firstNameInput, middleNameInput, lastNameInput, idTypeInput, idImageInput].forEach(input => {
+    input.addEventListener("input", resetVerification);
+    input.addEventListener("change", resetVerification);
+});
+idImageInput.addEventListener("change", showIdPreview);
+idImageInput.addEventListener("change", function() {
+    ocrImageSource = null;
+    ocrImageBlob = null;
+});
+
+cameraLiveness = window.startCameraLiveness({
+    video: video,
+    startButton: startCameraButton,
+    cameraSelect: cameraSelect,
+    captureButton: captureButton,
+    instruction: instruction,
+    onReset: function() {
+        selfieCaptured = false;
+        submitButton.disabled = true;
+        previewImage.style.display = "none";
+        previewImage.removeAttribute("src");
+        updateProgress();
+    }
+});
+
+function canvasToBlob() {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => {
+            if (blob) {
+                resolve(blob);
+            } else {
+                reject(new Error("Could not capture a selfie."));
+            }
+        }, "image/jpeg", 0.9);
+    });
+}
+
+async function prepareIdImageForOcr(file) {
+    if (ocrImageSource === file && ocrImageBlob) {
+        return ocrImageBlob;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    try {
+        image.src = objectUrl;
+        await waitWithTimeout(
+            image.decode(),
+            12000,
+            "The ID photo is taking too long to open. Try a smaller JPEG or PNG image."
+        );
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
+
+    const maxDimension = Math.max(image.naturalWidth, image.naturalHeight);
+    if (!maxDimension) {
+        throw new Error("Could not read the selected ID image.");
+    }
+
+    if (
+        ["image/jpeg", "image/png"].includes(file.type) &&
+        file.size <= 900 * 1024 &&
+        maxDimension <= 1800
+    ) {
+        ocrImageSource = file;
+        ocrImageBlob = file;
+        return file;
+    }
+
+    let scale = Math.min(1, 1800 / maxDimension);
+    const imageCanvas = document.createElement("canvas");
+    const context = imageCanvas.getContext("2d", { alpha: false });
+    if (!context) {
+        throw new Error("Could not prepare the ID image for text scanning.");
+    }
+
+    async function encodeImage(quality) {
+        imageCanvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        imageCanvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        context.fillStyle = "#fff";
+        context.fillRect(0, 0, imageCanvas.width, imageCanvas.height);
+        context.drawImage(image, 0, 0, imageCanvas.width, imageCanvas.height);
+
+        const blob = await waitWithTimeout(
+            new Promise(resolve => {
+                imageCanvas.toBlob(resolve, "image/jpeg", quality);
+            }),
+            8000,
+            "The ID photo is taking too long to prepare. Try a smaller or more tightly cropped image."
+        );
+        if (!blob) {
+            throw new Error("Could not prepare the ID image for text scanning.");
+        }
+
+        return blob;
+    }
+
+    for (const quality of [0.78, 0.65]) {
+        const blob = await encodeImage(quality);
+        if (blob.size <= 900 * 1024) {
+            ocrImageSource = file;
+            ocrImageBlob = blob;
+            return blob;
+        }
+    }
+
+    scale *= 0.75;
+    const blob = await encodeImage(0.7);
+    if (blob.size <= 900 * 1024) {
+        ocrImageSource = file;
+        ocrImageBlob = blob;
+        return blob;
+    }
+
+    throw new Error("This ID image is too large to prepare for text scanning. Try a closer, more tightly framed photo.");
+}
+
+async function prepareImageForFaceMatch(blob) {
+    const objectUrl = URL.createObjectURL(blob);
+    const image = new Image();
+
+    try {
+        image.src = objectUrl;
+        await waitWithTimeout(
+            image.decode(),
+            8000,
+            "The selfie is taking too long to prepare. Please try again."
+        );
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
+
+    const maxDimension = Math.max(image.naturalWidth, image.naturalHeight);
+    if (!maxDimension) {
+        throw new Error("Could not read the selfie for face matching.");
+    }
+    if (blob.size <= 1024 * 1024 && maxDimension <= 1600) {
+        return blob;
+    }
+
+    let scale = Math.min(1, 1600 / maxDimension);
+    const imageCanvas = document.createElement("canvas");
+    const context = imageCanvas.getContext("2d", { alpha: false });
+    if (!context) {
+        throw new Error("Could not prepare the selfie for face matching.");
+    }
+
+    async function encodeImage(quality) {
+        imageCanvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        imageCanvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        context.fillStyle = "#fff";
+        context.fillRect(0, 0, imageCanvas.width, imageCanvas.height);
+        context.drawImage(image, 0, 0, imageCanvas.width, imageCanvas.height);
+
+        const matchImage = await waitWithTimeout(
+            new Promise(resolve => {
+                imageCanvas.toBlob(resolve, "image/jpeg", quality);
+            }),
+            8000,
+            "The selfie is taking too long to prepare. Please try again."
+        );
+        if (!matchImage) {
+            throw new Error("Could not prepare the selfie for face matching.");
+        }
+
+        return matchImage;
+    }
+
+    for (const quality of [0.82, 0.7]) {
+        const matchImage = await encodeImage(quality);
+        if (matchImage.size <= 1024 * 1024) {
+            return matchImage;
+        }
+    }
+
+    scale *= 0.75;
+    const matchImage = await encodeImage(0.7);
+    if (matchImage.size <= 1024 * 1024) {
+        return matchImage;
+    }
+
+    throw new Error("The selfie is too large to prepare for face matching. Please try again.");
+}
+
+captureButton.addEventListener("click", function() {
+    if (!idVerified || !window.cameraLivenessComplete) {
+        showMessage("Complete the live face check before capturing your selfie.", "error");
+        return;
+    }
+
+    if (!video.videoWidth || !video.videoHeight) {
+        showMessage("The camera is not ready. Please try again.", "error");
+        return;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    previewImage.src = canvas.toDataURL("image/jpeg");
+    previewImage.style.display = "block";
+    selfieCaptured = true;
+    submitButton.disabled = false;
+    captureButton.textContent = "Retake Face";
+    updateProgress();
+    showMessage("Live check passed and selfie captured.", "success");
+});
+
+verifyIdButton.addEventListener("click", async function() {
+    clearMessage();
+
+    if (!firstNameInput.value.trim() || !lastNameInput.value.trim()) {
+        showMessage("Enter your first and last name before verifying your ID.", "error");
+        return;
+    }
+    if (!idTypeInput.value || !idImageInput.files.length) {
+        showMessage("Select an ID type and upload its image.", "error");
+        return;
+    }
+
+    resetVerification();
+    const checkedFile = idImageInput.files[0];
+    const checkedType = idTypeInput.value;
+    const checkedFirstName = firstNameInput.value.trim();
+    const checkedMiddleName = middleNameInput.value.trim();
+    const checkedLastName = lastNameInput.value.trim();
+    const formData = new FormData();
+    formData.append("first_name", checkedFirstName);
+    formData.append("middle_name", checkedMiddleName);
+    formData.append("last_name", checkedLastName);
+    formData.append("id_type", checkedType);
+    formData.append("id_image", checkedFile);
+
+    verifyIdButton.disabled = true;
+    verifyIdButton.textContent = "Preparing image...";
+    showMessage("Preparing the ID image for local text scanning...", "info");
+    let progressTimer = null;
+
+    try {
+        const ocrImage = await prepareIdImageForOcr(checkedFile);
+        if (
+            idImageInput.files[0] !== checkedFile ||
+            idTypeInput.value !== checkedType ||
+            firstNameInput.value.trim() !== checkedFirstName ||
+            middleNameInput.value.trim() !== checkedMiddleName ||
+            lastNameInput.value.trim() !== checkedLastName
+        ) {
+            return;
+        }
+
+        formData.append("id_image_ocr", ocrImage, "id-check.jpg");
+        verifyIdButton.textContent = "Checking ID...";
+        showMessage("Uploading the optimized image for local text scanning and name matching...", "info");
+        progressTimer = window.setTimeout(function() {
+            showMessage("The ID image is still uploading or being scanned locally. Please keep this page open.", "info");
+        }, 5000);
+
+        const data = await postFormForJson(
+            "verify-id.php",
+            formData,
+            60000,
+            "The ID check timed out while waiting for the server. Reload the page and try again."
+        );
+
+        if (
+            idImageInput.files[0] !== checkedFile ||
+            idTypeInput.value !== checkedType ||
+            firstNameInput.value.trim() !== checkedFirstName ||
+            middleNameInput.value.trim() !== checkedMiddleName ||
+            lastNameInput.value.trim() !== checkedLastName
+        ) {
+            return;
+        }
+
+        if (
+            typeof data.verification_token !== "string" ||
+            !/^[a-f0-9]{64}$/.test(data.verification_token)
+        ) {
+            throw new Error("The ID check did not return a valid result. Please check the ID again.");
+        }
+
+        idVerificationToken = data.verification_token;
+        idVerified = true;
+        livenessSection.hidden = false;
+        updateProgress();
+        showMessage(data.message, "success");
+    } catch (error) {
+        showMessage(error.message || "Could not verify the ID. Please try again.", "error");
+    } finally {
+        if (progressTimer !== null) {
+            window.clearTimeout(progressTimer);
+        }
+        verifyIdButton.disabled = false;
+        verifyIdButton.textContent = "Check ID image";
+    }
+});
+
+form.addEventListener("submit", async function(event) {
+    event.preventDefault();
+    clearMessage();
+
+    if (passwordInput.value !== confirmPasswordInput.value) {
+        showMessage("Passwords do not match.", "error");
+        return;
+    }
+    if (!idVerified || !idVerificationToken) {
+        showMessage("Verify your selected ID before continuing.", "error");
+        return;
+    }
+    if (!window.cameraLivenessComplete || !selfieCaptured) {
+        showMessage("Complete the live face check and capture your selfie first.", "error");
+        return;
+    }
+
+    submitButton.disabled = true;
+    submitButton.textContent = "Verifying and registering...";
+    matchingInProgress = true;
+    updateProgress();
+    showMessage("Preparing images for face matching...", "info");
+    let progressTimer = null;
+
+    try {
+        const [selfieBlob, idMatchImage] = await Promise.all([
+            canvasToBlob(),
+            prepareIdImageForOcr(idImageInput.files[0])
+        ]);
+        const selfieMatchImage = await prepareImageForFaceMatch(selfieBlob);
+        const formData = new FormData();
+        formData.append("first_name", firstNameInput.value.trim());
+        formData.append("middle_name", middleNameInput.value.trim());
+        formData.append("last_name", lastNameInput.value.trim());
+        formData.append("username", usernameInput.value.trim());
+        formData.append("password", passwordInput.value);
+        formData.append("id_type", idTypeInput.value);
+        formData.append("id_verification_token", idVerificationToken);
+        formData.append("id_image", idImageInput.files[0]);
+        formData.append("selfie", selfieBlob, "selfie.jpg");
+        formData.append("id_image_match", idMatchImage, "id-match");
+        formData.append("selfie_match", selfieMatchImage, "selfie-match.jpg");
+
+        showMessage("Matching your selfie to the ID, then saving your account and photos...", "info");
+        progressTimer = window.setTimeout(function() {
+            showMessage("Face matching is still processing. Please keep this page open.", "info");
+        }, 10000);
+
+        await postFormForJson(
+            "register.php",
+            formData,
+            75000,
+            "Face matching timed out after 75 seconds. Please try again later."
+        );
+
+        matchingInProgress = false;
+        window.location.replace("login.html?registered=1");
+    } catch (error) {
+        matchingInProgress = false;
+        updateProgress();
+        showMessage(error.message || "Registration failed.", "error");
+        submitButton.disabled = false;
+        submitButton.textContent = "Register";
+    } finally {
+        if (progressTimer !== null) {
+            window.clearTimeout(progressTimer);
+        }
+    }
+});
+</script>
+
+</body>
+</html>

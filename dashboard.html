@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="Assets/Styles/styles.css">
+</head>
+<body>
+
+    <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+
+    <aside id="sidebar" class="sidebar">
+        
+        <div class="logo">
+            LOGO
+        </div>
+
+        <nav>
+            <ul>
+                <li><a href="dashboard.html" id="active-tab">Dashboard</a></li>
+                <li><a href="inventory.html">Inventory</a></li>
+                <li><a href="transactions.html">Transactions</a></li>
+            </ul>
+        </nav>
+
+    </aside>
+
+    <main id="main-content" class="main-content">
+        <h1>Dashboard</h1>
+        <p>Welcome to the admin dashboard.</p>
+    </main>
+
+    <a href="php/logout.php" class="logout-btn">Log Out</a>
+    
+    <script>
+        function toggleSidebar() {
+            document.getElementById("sidebar").classList.toggle("collapsed");
+            document.getElementById("main-content").classList.toggle("expanded");
+        }
+    </script>
+
+</body>
+</html>

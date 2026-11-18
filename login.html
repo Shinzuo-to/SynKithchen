@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Login</title>
+
+<link rel="stylesheet" href="Assets/Styles/styles.css">
+
+</head>
+<body>
+
+<div id="login-container">
+
+    <h2>Admin Login</h2>
+
+    <form id="loginForm">
+
+        <div class="input-group">
+            <label for="username">
+                Username
+            </label>
+            <input
+                type="text"
+                id="username"
+                required>
+        </div>
+
+        <div class="input-group">
+            <label for="password">
+                Password
+            </label>
+            <input
+                type="password"
+                id="password"
+                required>
+        </div>
+
+        <div class="camera-container">
+
+            <div class="camera-frame">
+
+                <video
+                    id="video"
+                    autoplay
+                    muted
+                    playsinline>
+                </video>
+
+            </div>
+
+            <button
+                type="button"
+                class="btn"
+                id="capture-btn">
+
+                Capture Face
+
+            </button>
+
+            <canvas
+                id="canvas"
+                style="display:none;">
+            </canvas>
+
+            <div id="previewContainer">
+
+                <img id="previewImage">
+
+            </div>
+
+        </div>
+
+        <p
+            id="message"
+            class="error-message"
+            style="display:none;">
+        </p>
+
+        <button
+            type="submit"
+            class="btn"
+            id="submit-btn">
+
+            Login
+
+        </button>
+
+        <p class="register-link">
+            No account yet?
+            <a href="registration.html">
+                Create one now!
+            </a>
+        </p>
+
+    </form>
+
+</div>
+
+<script>
+
+const form =
+    document.getElementById(
+        "loginForm"
+    );
+
+const usernameInput =
+    document.getElementById(
+        "username"
+    );
+
+const passwordInput =
+    document.getElementById(
+        "password"
+    );
+
+const video =
+    document.getElementById(
+        "video"
+    );
+
+const canvas =
+    document.getElementById(
+        "canvas"
+    );
+
+const captureBtn =
+    document.getElementById(
+        "capture-btn"
+    );
+
+const submitBtn =
+    document.getElementById(
+        "submit-btn"
+    );
+
+const previewImage =
+    document.getElementById(
+        "previewImage"
+    );
+
+const messageBox =
+    document.getElementById(
+        "message"
+    );
+
+let faceCaptured =
+    false;
+
+function showError(message){
+
+    messageBox.style.display =
+        "block";
+
+    messageBox.style.color =
+        "#dc3545";
+
+    messageBox.textContent =
+        message;
+}
+
+function showSuccess(message){
+
+    messageBox.style.display =
+        "block";
+
+    messageBox.style.color =
+        "#28a745";
+
+    messageBox.textContent =
+        message;
+}
+
+function showStatus(message){
+
+    messageBox.style.display =
+        "block";
+
+    messageBox.style.color =
+        "#007bff";
+
+    messageBox.textContent =
+        message;
+}
+
+function hideMessage(){
+
+    messageBox.style.display =
+        "none";
+
+    messageBox.textContent =
+        "";
+}
+
+if (new URLSearchParams(window.location.search).get("registered") === "1") {
+    showSuccess("Registration complete. Please log in.");
+}
+
+async function startCamera(){
+
+    try{
+
+        const stream =
+            await navigator.mediaDevices.getUserMedia({
+                video:true,
+                audio:false
+            });
+
+        video.srcObject =
+            stream;
+    }
+    catch(error){
+
+        console.error(error);
+
+        showError(
+            "Unable to access camera."
+        );
+    }
+}
+
+captureBtn.addEventListener(
+    "click",
+    function(){
+
+        canvas.width =
+            video.videoWidth;
+
+        canvas.height =
+            video.videoHeight;
+
+        const ctx =
+            canvas.getContext(
+                "2d"
+            );
+
+        ctx.drawImage(
+            video,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+        previewImage.src =
+            canvas.toDataURL(
+                "image/jpeg"
+            );
+
+        previewImage.style.display =
+            "block";
+
+        faceCaptured =
+            true;
+
+        captureBtn.textContent =
+            "Retake";
+
+        showSuccess(
+            "Face captured successfully."
+        );
+    }
+);
+
+function canvasToBlob(canvas){
+
+    return new Promise(resolve => {
+
+        canvas.toBlob(
+            resolve,
+            "image/jpeg",
+            0.9
+        );
+
+    });
+
+}
+
+form.addEventListener(
+    "submit",
+    async function(event){
+
+        event.preventDefault();
+
+        hideMessage();
+
+        if(!faceCaptured){
+
+            showError(
+                "Please capture your face first."
+            );
+
+            return;
+        }
+
+        try{
+
+            submitBtn.disabled =
+                true;
+
+            submitBtn.textContent =
+                "Verifying...";
+
+            showStatus(
+                "Verifying identity..."
+            );
+
+            const selfieBlob =
+                await canvasToBlob(
+                    canvas
+                );
+
+            const formData =
+                new FormData();
+
+            formData.append(
+                "username",
+                usernameInput.value.trim()
+            );
+
+            formData.append(
+                "password",
+                passwordInput.value
+            );
+
+            formData.append(
+                "selfie",
+                selfieBlob,
+                "selfie.jpg"
+            );
+
+            const response =
+                await fetch(
+                "login.php",
+                    {
+                        method:"POST",
+                        body:formData
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if(data.success){
+
+                showSuccess(
+                    "Access Granted!"
+                );
+
+                setTimeout(() => {
+
+                    window.location.href =
+                        "dashboard.html";
+
+                }, 1000);
+
+            }
+            else{
+
+                showError(
+                    data.message ||
+                    "Login failed."
+                );
+
+                submitBtn.disabled =
+                    false;
+
+                submitBtn.textContent =
+                    "Enter";
+            }
+
+        }
+        catch(error){
+
+            console.error(error);
+
+            showError(
+                "Server error."
+            );
+
+            submitBtn.disabled =
+                false;
+
+            submitBtn.textContent =
+                "Enter";
+        }
+    }
+);
+
+window.addEventListener(
+    "load",
+    startCamera
+);
+
+</script>
+
+</body>
+</html>
